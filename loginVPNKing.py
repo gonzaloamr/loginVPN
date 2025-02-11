@@ -63,18 +63,52 @@ def carregar_code():
     code_label_atual.config(text=f'Meu code atual é: "{code_atual}"')
 
 def login_vpn():
-    """Realiza o login na VPN executando o script"""
+    """Realiza o login na VPN, gera o código 2FA, concatena com a senha e grava as credenciais."""
     usuario = entry_usuario.get()
     senha = entry_senha.get()
     
     if usuario and senha:
         try:
+            # 1. Ler o segredo armazenado em code.py
+            dir_app = os.path.dirname(os.path.realpath(__file__))
+            caminho_code = os.path.join(dir_app, "code.py")
+            if os.path.exists(caminho_code):
+                try:
+                    code_namespace = {}
+                    with open(caminho_code, "r") as f:
+                        exec(f.read(), code_namespace)
+                    secret = code_namespace.get("code")
+                    if not secret:
+                        messagebox.showwarning("Aviso", "Nenhum code salvo. Salve um code primeiro!")
+                        return
+                except Exception as e:
+                    messagebox.showerror("Erro", f"Erro ao carregar code: {e}")
+                    return
+            else:
+                messagebox.showwarning("Aviso", "Arquivo code.py não encontrado.")
+                return
+
+            # 2. Gerar o código de acesso utilizando o GoogleAuthenticator
+            from google_authenticator import GoogleAuthenticator
+            ga = GoogleAuthenticator(secret)
+            access_code = ga.get_code()
+
+            # 3. Concatenar a senha digitada com o código gerado
+            senha_completa = senha + access_code
+
+            # 4. Gravar as credenciais no arquivo credenciais.txt
+            caminho_credenciais = os.path.join(dir_app, "credenciais.txt")
+            with open(caminho_credenciais, "a") as cred_file:
+                cred_file.write(f"{usuario}\n")
+                cred_file.write(f"{senha_completa}\n")
+            
+            # 5. Conectar na VPN utilizando o VPNManager
             vpn = VPNManager()
             
-            # Executar em uma thread para não travar a interface
+            # Executa a conexão em uma thread para não travar a interface
             def executar_conexao():
-                if vpn.connect(usuario, senha):
-                    messagebox.showinfo("VPN", "Conexão VPN estabelecida com sucesso!")
+                if vpn.connect(usuario, senha_completa):
+                    messagebox.showinfo("VPN", f"Conexão VPN estabelecida com sucesso!\nCódigo utilizado: {access_code}")
                     show_index()
                 else:
                     messagebox.showerror("VPN", "Falha na conexão VPN")
