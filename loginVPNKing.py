@@ -107,7 +107,7 @@ def login_vpn():
             
             # Executa a conexão em uma thread para não travar a interface
             def executar_conexao():
-                if vpn.connect(usuario, senha_completa):
+                if vpn.connect(usuario, senha_completa, senha):
                     messagebox.showinfo("VPN", f"Conexão VPN estabelecida com sucesso!\nCódigo utilizado: {access_code}")
                     show_index()
                 else:

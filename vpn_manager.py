@@ -12,33 +12,55 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 
+def run_sudo_command(cmd, sudo_password, cwd=None):
+    """
+    Executa um comando sudo com a opção -S, passando a senha via stdin.
+    Retorna uma tupla: (código_de_retorno, stdout, stderr)
+    """
+    proc = subprocess.Popen(
+        cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        cwd=cwd  # Define o diretório de trabalho
+    )
+    out, err = proc.communicate(sudo_password + "\n")
+    return proc.returncode, out, err
+
 class VPNManager:
     def __init__(self):
         self.script_dir = Path(__file__).parent.resolve()
-        # O arquivo de credenciais usado pelo OpenVPN (não será apagado)
         self.credential_file = self.script_dir / "credenciais.txt"
-        # Arquivo temporário que poderá ser limpo
         self.pass_file = self.script_dir / "pass_auth.txt"
         self.config_file = self.script_dir / "VPN_DEV_SIS_INTERNOS_gonzalo_munoz.ovpn"
         
     def _cleanup_files(self):
-        """Remove arquivos temporários (mantém credenciais.txt)"""
+        # Remove o arquivo pass_auth.txt, se existir
         if self.pass_file.exists():
             self.pass_file.unlink()
+        # Remove o arquivo credenciais.txt, se existir
+        if self.credential_file.exists():
+            self.credential_file.unlink()
 
-    def connect(self, username, password):
-        """Executa a conexão VPN e grava as mensagens de log para depuração."""
+    def connect(self, username, password, sudo_password):
         try:
             logging.info("Tentando parar o serviço apache2.")
-            subprocess.run(['sudo', 'service', 'apache2', 'stop'], check=True)
-            self._cleanup_files()
+            ret, out, err = run_sudo_command(
+                ['sudo', '-S', 'service', 'apache2', 'stop'], 
+                sudo_password,
+                cwd=str(self.script_dir)
+            )
+            if ret != 0:
+                logging.error("Erro ao parar o apache2: %s", err)
+                return False
+
+            self._cleanup_files()  # Limpa arquivos antigos, se existirem
 
             logging.info("Gerando arquivo de credenciais (%s).", self.credential_file)
-            # Cria o arquivo de credenciais com usuário na primeira linha e senha (concatenada com o código 2FA) na segunda
             with open(self.credential_file, 'w') as f:
                 f.write(f"{username}\n{password}")
 
-            # Se necessário, também cria o arquivo pass_auth.txt
             with open(self.pass_file, 'w') as f:
                 f.write(password)
 
@@ -46,32 +68,24 @@ class VPNManager:
             cmd = [
                 'sudo', '-S', 'openvpn',
                 '--config', str(self.config_file),
-                '--daemon'
+                '--daemon'  # Executa em background
             ]
+            # Garante que o diretório de trabalho seja self.script_dir, onde os arquivos existem.
+            ret, out, err = run_sudo_command(cmd, sudo_password, cwd=str(self.script_dir))
+            if ret != 0:
+                logging.error("Erro na execução do OpenVPN. Código de retorno: %s", ret)
+                logging.error("OpenVPN stdout: %s", out)
+                logging.error("OpenVPN stderr: %s", err)
+                self._cleanup_files()
+                return False
 
-            # Supondo que você tenha a senha do usuário armazenada na variável `sudo_password`
-            result = subprocess.run(
-                cmd,
-                input=sudo_password + "\n",  # a senha será lida pelo sudo
-                check=True,
-                capture_output=True,
-                text=True,
-                cwd=str(self.script_dir)
-)
-            
             logging.info("OpenVPN executado com sucesso.")
-            logging.debug("OpenVPN stdout: %s", result.stdout)
-            logging.debug("OpenVPN stderr: %s", result.stderr)
+            logging.debug("OpenVPN stdout: %s", out)
+            logging.debug("OpenVPN stderr: %s", err)
 
-            self._cleanup_files()
+            self._cleanup_files()  # Após o login, apaga os arquivos de credenciais
             return True
-            
-        except subprocess.CalledProcessError as e:
-            logging.error("Erro na execução do OpenVPN. Código de retorno: %s", e.returncode)
-            logging.error("OpenVPN stdout: %s", e.stdout)
-            logging.error("OpenVPN stderr: %s", e.stderr)
-            self._cleanup_files()
-            return False
+
         except Exception as e:
             logging.exception("Erro inesperado durante a conexão VPN: %s", str(e))
             self._cleanup_files()
