@@ -6,6 +6,28 @@ import platform
 from vpn_manager import VPNManager
 import threading
 
+def check_vpn_status():
+    config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                               "VPN_DEV_SIS_INTERNOS_gonzalo_munoz.ovpn")
+    try:
+        output = subprocess.check_output(
+            ["pgrep", "-f", f"openvpn --config {config_path}"],
+            text=True
+        )
+        if output.strip():
+            return True
+        else:
+            return False
+    except subprocess.CalledProcessError:
+        return False
+
+# Função para atualizar o label de status da VPN na página index
+def update_initial_vpn_status():
+    if check_vpn_status():
+        vpn_status_label.config(text="VPN Status: Conectado")
+    else:
+        vpn_status_label.config(text="VPN Status: Desconectado")
+
 def show_index():
     """Exibe a página index (Olá mundo) e esconde outras páginas."""
     frame_code.pack_forget()
@@ -108,7 +130,7 @@ def login_vpn():
             # Executa a conexão em uma thread para não travar a interface
             def executar_conexao():
                 if vpn.connect(usuario, senha_completa, senha):
-                    messagebox.showinfo("VPN", f"Conexão VPN estabelecida com sucesso!\nCódigo utilizado: {access_code}")
+                    messagebox.showinfo("VPN", f"Conexão VPN estabelecida com sucesso!")
                     show_index()
                 else:
                     messagebox.showerror("VPN", "Falha na conexão VPN")
@@ -129,7 +151,7 @@ root = tk.Tk()
 root.title("Login VPN KingHost")
 root.geometry("400x300")
 
-# Configuração do menu
+# Configuração do menu, frames, etc.
 menubar = tk.Menu(root)
 menu_acoes = tk.Menu(menubar, tearoff=0)
 menu_acoes.add_command(label="Login VPN", command=show_loginvpn)
@@ -147,6 +169,9 @@ frame_loginvpn = tk.Frame(root)
 # Página Index
 label_ola = tk.Label(frame_index, text="Olá mundo", font=("Arial", 24))
 label_ola.pack(expand=True)
+# Label de status da VPN
+vpn_status_label = tk.Label(frame_index, text="VPN Status: Desconectado", font=("Arial", 12))
+vpn_status_label.pack(pady=(10, 0))
 
 # Página Meu Code
 code_label_atual = tk.Label(frame_code, text="Meu code atual é: ", font=("Arial", 12))
@@ -186,5 +211,7 @@ botao_voltar_login.pack(pady=10)
 
 # Inicia com a página index
 frame_index.pack(fill='both', expand=True)
+
+root.after(100, update_initial_vpn_status)
 
 root.mainloop()

@@ -55,7 +55,9 @@ class VPNManager:
                 logging.error("Erro ao parar o apache2: %s", err)
                 return False
 
-            self._cleanup_files()  # Limpa arquivos antigos, se existirem
+            # Limpa processos antigos de OpenVPN, se houver
+            self.kill_openvpn_processes(sudo_password)
+            self._cleanup_files()  # Limpa arquivos antigos (credenciais e pass_auth)
 
             logging.info("Gerando arquivo de credenciais (%s).", self.credential_file)
             with open(self.credential_file, 'w') as f:
@@ -70,7 +72,6 @@ class VPNManager:
                 '--config', str(self.config_file),
                 '--daemon'  # Executa em background
             ]
-            # Garante que o diretório de trabalho seja self.script_dir, onde os arquivos existem.
             ret, out, err = run_sudo_command(cmd, sudo_password, cwd=str(self.script_dir))
             if ret != 0:
                 logging.error("Erro na execução do OpenVPN. Código de retorno: %s", ret)
@@ -83,10 +84,38 @@ class VPNManager:
             logging.debug("OpenVPN stdout: %s", out)
             logging.debug("OpenVPN stderr: %s", err)
 
-            self._cleanup_files()  # Após o login, apaga os arquivos de credenciais
+            self._cleanup_files()
             return True
 
         except Exception as e:
             logging.exception("Erro inesperado durante a conexão VPN: %s", str(e))
             self._cleanup_files()
             return False
+
+    def kill_openvpn_processes(self, sudo_password):
+        """
+        Procura e mata processos de OpenVPN em execução.
+        """
+        # Comando que lista os PIDs dos processos openvpn (o uso de '[o]penvpn' evita que o próprio grep apareça na lista)
+        cmd = "ps aux | grep '[o]penvpn' | awk '{print $2}'"
+        proc = subprocess.Popen(
+            cmd,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            cwd=str(self.script_dir)
+        )
+        out, err = proc.communicate()
+        if out:
+            pids = out.strip().splitlines()
+            for pid in pids:
+                # Mata cada processo encontrado
+                ret, out_kill, err_kill = run_sudo_command(
+                    ['sudo', '-S', 'kill', '-9', pid],
+                    sudo_password,
+                    cwd=str(self.script_dir)
+                )
+                logging.info("Processo openvpn com PID %s finalizado (retorno %s)", pid, ret)
+        else:
+            logging.info("Nenhum processo openvpn encontrado para matar.")
