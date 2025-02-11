@@ -2,11 +2,13 @@ import subprocess
 import logging
 from pathlib import Path
 
+logging.disable(logging.CRITICAL)  # Se quiser ver os logs comente essa linha
+script_dir = Path(__file__).parent.resolve()
+log_file = script_dir / "vpn_manager.log"
+
 # Configuração básica do logging.
-# As mensagens serão gravadas no arquivo vpn_manager.log,
-# com nível DEBUG e um formato que inclui data/hora, nível e mensagem.
 logging.basicConfig(
-    filename='vpn_manager.log',
+    filename=str(log_file),  # Usa o caminho absoluto do log
     level=logging.DEBUG,
     format='%(asctime)s %(levelname)s: %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
