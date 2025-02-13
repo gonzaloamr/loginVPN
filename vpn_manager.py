@@ -1,5 +1,7 @@
 import subprocess
+from tkinter import messagebox, ttk
 import logging
+import os
 from pathlib import Path
 
 logging.disable(logging.CRITICAL)  # Se não quiser ver os logs comente essa linha
@@ -13,6 +15,28 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)s: %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
+
+def get_ovpn_config_path():
+    """Lê o caminho do arquivo OVPN do arquivo de configuração vpn_config.txt"""
+    dir_app = os.path.dirname(os.path.realpath(__file__))
+    config_file = os.path.join(dir_app, "vpn_config.txt")
+    
+    try:
+        with open(config_file, 'r') as f:
+            ovpn_filename = f.readline().strip()
+            if not ovpn_filename:
+                messagebox.showerror("Erro", "Arquivo vpn_config.txt está vazio!")
+                return None
+            
+            ovpn_path = os.path.join(dir_app, ovpn_filename)
+            if not os.path.exists(ovpn_path):
+                messagebox.showerror("Erro", f"Arquivo OVPN não encontrado: {ovpn_path}")
+                return None
+            
+            return ovpn_path
+    except FileNotFoundError:
+        messagebox.showerror("Erro", "Arquivo vpn_config.txt não encontrado!")
+        return None
 
 def run_sudo_command(cmd, sudo_password, cwd=None):
     """
@@ -35,7 +59,7 @@ class VPNManager:
         self.script_dir = Path(__file__).parent.resolve()
         self.credential_file = self.script_dir / "credenciais.txt"
         self.pass_file = self.script_dir / "pass_auth.txt"
-        self.config_file = self.script_dir / "VPN_DEV_SIS_INTERNOS_gonzalo_munoz.ovpn"
+        self.config_file = get_ovpn_config_path()
         
     def _cleanup_files(self):
         # Remove o arquivo pass_auth.txt, se existir

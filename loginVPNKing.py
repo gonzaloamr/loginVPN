@@ -4,12 +4,14 @@ import os
 import subprocess
 import platform
 from vpn_manager import VPNManager
+from vpn_manager import get_ovpn_config_path
 import threading
 from tkinter import simpledialog
 
 def check_vpn_status():
-    config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                               "VPN_DEV_SIS_INTERNOS_gonzalo_munoz.ovpn")
+    config_path = get_ovpn_config_path()
+    if not config_path:
+        return False
     try:
         output = subprocess.check_output(
             ["pgrep", "-f", f"openvpn --config {config_path}"],
@@ -22,7 +24,6 @@ def check_vpn_status():
     except subprocess.CalledProcessError:
         return False
 
-# Função para atualizar o label de status da VPN na página index
 def update_initial_vpn_status():
     if check_vpn_status():
         vpn_status_label.config(text="VPN Status: Conectado")
@@ -92,7 +93,6 @@ def login_vpn():
     
     if usuario and senha:
         try:
-            # 1. Ler o segredo armazenado em code.py
             dir_app = os.path.dirname(os.path.realpath(__file__))
             caminho_code = os.path.join(dir_app, "code.py")
             if os.path.exists(caminho_code):
@@ -111,24 +111,20 @@ def login_vpn():
                 messagebox.showwarning("Aviso", "Arquivo code.py não encontrado.")
                 return
 
-            # 2. Gerar o código de acesso utilizando o GoogleAuthenticator
             from google_authenticator import GoogleAuthenticator
             ga = GoogleAuthenticator(secret)
             access_code = ga.get_code()
 
-            # 3. Concatenar a senha digitada com o código gerado
+            #Concatena a senha digitada com o código gerado do google
             senha_completa = senha + access_code
 
-            # 4. Gravar as credenciais no arquivo credenciais.txt
             caminho_credenciais = os.path.join(dir_app, "credenciais.txt")
             with open(caminho_credenciais, "a") as cred_file:
                 cred_file.write(f"{usuario}\n")
                 cred_file.write(f"{senha_completa}\n")
-            
-            # 5. Conectar na VPN utilizando o VPNManager
+
             vpn = VPNManager()
             
-            # Executa a conexão em uma thread para não travar a interface
             def executar_conexao():
                 if vpn.connect(usuario, senha_completa, senha):
                     update_initial_vpn_status()
@@ -167,9 +163,11 @@ def acao_sair():
 # Configuração da janela principal
 root = tk.Tk(className="VPN KingHost")
 root.title("Login VPN KingHost")
-root.geometry("400x300")
+root.geometry("500x300")
+base_dir = os.path.dirname(os.path.abspath(__file__))
+image_path = os.path.join(base_dir, "img", "kinghost-favicon.png")
 
-icone = tk.PhotoImage(file="/home/gonzalo.munoz@king.local/Documentos/loginVPN/kinghost-favicon.png")
+icone = tk.PhotoImage(file=image_path)
 root.iconphoto(True, icone)
 
 # Configuração do menu, frames, etc.
@@ -189,8 +187,13 @@ frame_code = tk.Frame(root)
 frame_loginvpn = tk.Frame(root)
 
 # Página Index
-label_ola = tk.Label(frame_index, text="Olá mundo", font=("Arial", 24))
+label_ola = tk.Label(frame_index, font=("Arial", 24))
 label_ola.pack(expand=True)
+img = tk.PhotoImage(file=image_path)
+image_label = tk.Label(frame_index, image=img)
+image_label.image = img
+image_label.place(relx=0.5, rely=0.5, anchor="center")
+
 # Label de status da VPN
 vpn_status_label = tk.Label(frame_index, text="VPN Status: Desconectado", font=("Arial", 12))
 vpn_status_label.pack(pady=(10, 0))
