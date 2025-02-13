@@ -5,6 +5,7 @@ import subprocess
 import platform
 from vpn_manager import VPNManager
 import threading
+from tkinter import simpledialog
 
 def check_vpn_status():
     config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
@@ -143,6 +144,22 @@ def login_vpn():
     else:
         messagebox.showwarning("Erro", "Preencha todos os campos!")
 
+def desconectar_vpn():
+    """Desconecta a VPN matando os processos de OpenVPN e atualiza o status na página principal."""
+    confirm = messagebox.askyesno("Sair da VPN", "Tem certeza que deseja desconectar a VPN?")
+    if confirm:
+        sudo_password = simpledialog.askstring("Sair da VPN", "Digite sua senha sudo para desconectar:", show="*", parent=root)
+        if sudo_password:
+            vpn = VPNManager()
+            try:
+                vpn.kill_openvpn_processes(sudo_password)
+                update_initial_vpn_status()
+                messagebox.showinfo("VPN", "Desconectado da VPN com sucesso!")
+            except Exception as e:
+                messagebox.showerror("Erro", f"Erro ao desconectar VPN: {e}")
+        else:
+            messagebox.showwarning("Aviso", "Senha sudo não fornecida. Não foi possível desconectar a VPN.")
+
 def acao_sair():
     """Encerra o aplicativo"""
     root.quit()
@@ -159,6 +176,7 @@ root.iconphoto(True, icone)
 menubar = tk.Menu(root)
 menu_acoes = tk.Menu(menubar, tearoff=0)
 menu_acoes.add_command(label="Login VPN", command=show_loginvpn)
+menu_acoes.add_command(label="Logout VPN", command=desconectar_vpn)
 menu_acoes.add_command(label="Meu Code", command=show_code)
 menu_acoes.add_separator()
 menu_acoes.add_command(label="Sair", command=acao_sair)
