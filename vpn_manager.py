@@ -2,7 +2,7 @@ import subprocess
 import logging
 from pathlib import Path
 
-logging.disable(logging.CRITICAL)  # Se quiser ver os logs comente essa linha
+logging.disable(logging.CRITICAL)  # Se não quiser ver os logs comente essa linha
 script_dir = Path(__file__).parent.resolve()
 log_file = script_dir / "vpn_manager.log"
 

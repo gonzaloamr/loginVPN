@@ -130,6 +130,7 @@ def login_vpn():
             # Executa a conexão em uma thread para não travar a interface
             def executar_conexao():
                 if vpn.connect(usuario, senha_completa, senha):
+                    update_initial_vpn_status()
                     messagebox.showinfo("VPN", f"Conexão VPN estabelecida com sucesso!")
                     show_index()
                 else:
@@ -147,9 +148,12 @@ def acao_sair():
     root.quit()
 
 # Configuração da janela principal
-root = tk.Tk()
+root = tk.Tk(className="VPN KingHost")
 root.title("Login VPN KingHost")
 root.geometry("400x300")
+
+icone = tk.PhotoImage(file="/home/gonzalo.munoz@king.local/Documentos/loginVPN/kinghost-favicon.png")
+root.iconphoto(True, icone)
 
 # Configuração do menu, frames, etc.
 menubar = tk.Menu(root)
